@@ -47,7 +47,17 @@ Companion file to `cmake-learning-roadmap.md`. Update this after each milestone 
 ---
 
 ## Milestone 4 — Build Types, Flags, and Properties
-**Status:** ⬜ Not started
+
+**Status:** ✅ Done
+
+- Used `target_compile_features(... cxx_std_17)` on both targets instead of the global `CMAKE_CXX_STANDARD` variable. Correctly scoped: `PRIVATE` on `hello_cmake` (leaf executable, nothing consumes it, no reason to propagate outward) and `PUBLIC` on `print_hello` (needed both to compile the library itself and exported to `hello_cmake`, which links against it).
+- Explored an `INTERFACE` library (`project_options`) as a way to deduplicate the repeated `target_compile_features` calls across targets. Understood why `INTERFACE` is the only sensible keyword for a no-source-files target (nothing to apply the property to "privately," only something to export). Deliberately reverted to two explicit calls, correctly judging that with only two targets and one shared property, the pattern's overhead (an extra named target to track) outweighs the deduplication benefit. Noted as a real, useful pattern to reach for once target/property count grows.
+- Added `DEBUG_VERBOSE` via `target_compile_definitions()` on both targets (not `add_compile_definitions()`, which is directory-scoped and would leak to targets that don't want it), gated with the nested generator expression `$<$<CONFIG:Debug>:DEBUG_VERBOSE>` rather than defining it unconditionally.
+- Built from two separate build directories (`build_d` with `-DCMAKE_BUILD_TYPE=Debug`, `build_r` with `-DCMAKE_BUILD_TYPE=Release`) since the generator (Unix Makefiles) is single-config. Ran both binaries and explicitly confirmed the diagnostic output differs, not just that both binaries run.
+- Correctly identified that multi-config generators (Ninja Multi-Config, Visual Studio) don't take `-DCMAKE_BUILD_TYPE` at configure time — the config is chosen at build time instead, e.g. via `--config Release`.
+- Initial misstep, corrected: configured a third build directory with `CMAKE_BUILD_TYPE` unset entirely and initially called the result "a release build" because `DEBUG_VERBOSE` was absent. Corrected to understand this is a distinct, unnamed state — no optimization flags at all, not equivalent to Release — since `$<CONFIG:Debug>` evaluating false only means the string didn't match "Debug," not that any Release-like properties were applied. Left as a self-check (compare verbose compiler invocations between `build_r` and the unset build for `-O2`/`-O3`) rather than a blocking requirement.
+
+**Notes for next time:** Solid grasp of target-scoped vs directory-scoped properties and generator expressions. The unset-`CMAKE_BUILD_TYPE` distinction needed a correction — worth a quick sanity check early in Milestone 5 if generated-header behavior ever seems to depend on build type, to make sure the "no build type set" trap doesn't resurface there.
 
 ---
 
